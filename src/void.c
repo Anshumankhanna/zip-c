@@ -12,8 +12,7 @@ void Result_free(Result* ptr) {
         return ;
     }
     
-    // We are getting an error if we try to free ptr -> data, because it already gets free so we have to keep this instruction that ptr -> data must me freed manually.
-    // free(ptr -> data);
+    free(ptr -> data);
     free(ptr -> error);
     free(ptr);
 }
@@ -123,6 +122,8 @@ int main() {
     }
 
     ZipArray* data = (ZipArray *) result -> data;
+    // never should two pointers point to the same memory.
+    result -> data = NULL;
 
     free(arr1);
     free(arr2);
@@ -133,6 +134,8 @@ int main() {
 
     ZipArray_free(data);
     Result_free(result);
+
+    printf("All memory freed.");
     
     return 0;
 }
