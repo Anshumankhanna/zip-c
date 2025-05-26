@@ -9,25 +9,10 @@ typedef struct {
     char* error;
 } Result;
 
-void Result_free(Result* ptr) {
-    if (ptr == NULL) {
-        return ;
-    }
-    
-    FREE(ptr -> data);
-    FREE(ptr -> error);
-    FREE(ptr);
-}
-
 #define Result_error(error) Result_new(NULL, error)
 #define Result_data(data) Result_new(data, NULL)
-Result* Result_new(void* data, char* error) {
-    Result* result = malloc(sizeof(Result));
-
-    result -> data = data;
-    result -> error = error;
-
-    return result;
+Result Result_new(void* data, char* error) {
+    return (Result) { .data = data, .error = error };
 }
 
 typedef struct {
@@ -59,7 +44,7 @@ void ZipArray_free(ZipArray* ptr) {
 }
 
 #define zip(arr1, size1, arr2, size2) _zip(arr1, size1, sizeof(arr1[0]), arr2, size2, sizeof(arr2[0]))
-Result* _zip(
+Result _zip(
     const void* arr1,
     const size_t arr1_size,
     const size_t arr1_element_size,
@@ -113,17 +98,11 @@ int main() {
         arr2[index] = (long long) index + 2;
     }
     
-    Result* result = zip(arr1, size1, arr2, size2);
-
-    if (result -> error != NULL) {
-        Result_free(result);
-        return 1;
-    }
-
-    ZipArray* data = (ZipArray *) result -> data;
+    Result result = zip(arr1, size1, arr2, size2);
+    ZipArray* data = (ZipArray *) result.data;
     // never should two pointers point to the same memory.
-    // hence we remove the access from result -> data to prevent future issues if we free one pointer and then try to free the other one.
-    result -> data = NULL;
+    // hence we remove the access from result.data to prevent future issues if we free one pointer and then try to free the other one.
+    result.data = NULL;
 
     FREE(arr1);
     FREE(arr2);
@@ -133,7 +112,6 @@ int main() {
     }
 
     ZipArray_free(data);
-    Result_free(result);
 
     printf("All memory freed.");
     
