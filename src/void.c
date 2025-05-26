@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define FREE(ptr) (free(ptr), ptr = NULL)
+
 typedef struct {
     void* data;
     char* error;
@@ -12,14 +14,9 @@ void Result_free(Result* ptr) {
         return ;
     }
     
-    free(ptr -> data);
-    ptr -> data = NULL;
-
-    free(ptr -> error);
-    ptr -> error = NULL;
-
-    free(ptr);
-    ptr = NULL;
+    FREE(ptr -> data);
+    FREE(ptr -> error);
+    FREE(ptr);
 }
 
 #define Result_error(error) Result_new(NULL, error)
@@ -51,19 +48,14 @@ void ZipArray_free(ZipArray* ptr) {
     }
 
     for (size_t index = 0; index < ptr -> size; ++index) {
-        free(ptr -> arr[index].ptr_val1);
-        ptr -> arr[index].ptr_val1 = NULL;
-
-        free(ptr -> arr[index].ptr_val2);
-        ptr -> arr[index].ptr_val2 = NULL;
+        FREE(ptr -> arr[index].ptr_val1);
+        FREE(ptr -> arr[index].ptr_val2);
     }
 
-    free(ptr -> arr);
-    ptr -> arr = NULL;
+    FREE(ptr -> arr);
 
     if_arr_null:
-    free(ptr);
-    ptr = NULL;
+    FREE(ptr);
 }
 
 #define zip(arr1, size1, arr2, size2) _zip(arr1, size1, sizeof(arr1[0]), arr2, size2, sizeof(arr2[0]))
@@ -94,15 +86,10 @@ Result* _zip(
     }
 
     for (size_t index = 0; index < min_size; ++index) {
-        data -> arr[index].ptr_val1 = malloc(arr1_element_size);
-
-        if (data -> arr[index].ptr_val1 == NULL) {
+        if ((data -> arr[index].ptr_val1 = malloc(arr1_element_size)) == NULL) {
             return Result_error("Could not allocate memory for zip array.");
         }
-
-        data -> arr[index].ptr_val2 = malloc(arr2_element_size);
-
-        if (data -> arr[index].ptr_val2 == NULL) {
+        if ((data -> arr[index].ptr_val2 = malloc(arr2_element_size)) == NULL) {
             return Result_error("Could not allocate memory for zip array.");
         }
 
@@ -138,10 +125,8 @@ int main() {
     // hence we remove the access from result -> data to prevent future issues if we free one pointer and then try to free the other one.
     result -> data = NULL;
 
-    free(arr1);
-    arr1 = NULL;
-    free(arr2);
-    arr2 = NULL;
+    FREE(arr1);
+    FREE(arr2);
 
     for (size_t index = 0; index < data -> size; ++index) {
         printf("{ %d, %lld }\n", *(int *) data -> arr[index].ptr_val1, *(long long *) data -> arr[index].ptr_val2);
