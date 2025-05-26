@@ -13,8 +13,13 @@ void Result_free(Result* ptr) {
     }
     
     free(ptr -> data);
+    ptr -> data = NULL;
+
     free(ptr -> error);
+    ptr -> error = NULL;
+
     free(ptr);
+    ptr = NULL;
 }
 
 #define Result_error(error) Result_new(NULL, error)
@@ -41,17 +46,24 @@ void ZipArray_free(ZipArray* ptr) {
     if (ptr == NULL) {
         return ;
     }
+    if (ptr -> arr == NULL) {
+        goto if_arr_null;
+    }
 
     for (size_t index = 0; index < ptr -> size; ++index) {
         free(ptr -> arr[index].ptr_val1);
-        free(ptr -> arr[index].ptr_val2);
-
         ptr -> arr[index].ptr_val1 = NULL;
+
+        free(ptr -> arr[index].ptr_val2);
         ptr -> arr[index].ptr_val2 = NULL;
     }
-    
+
     free(ptr -> arr);
+    ptr -> arr = NULL;
+
+    if_arr_null:
     free(ptr);
+    ptr = NULL;
 }
 
 #define zip(arr1, size1, arr2, size2) _zip(arr1, size1, sizeof(arr1[0]), arr2, size2, sizeof(arr2[0]))
@@ -123,10 +135,13 @@ int main() {
 
     ZipArray* data = (ZipArray *) result -> data;
     // never should two pointers point to the same memory.
+    // hence we remove the access from result -> data to prevent future issues if we free one pointer and then try to free the other one.
     result -> data = NULL;
 
     free(arr1);
+    arr1 = NULL;
     free(arr2);
+    arr2 = NULL;
 
     for (size_t index = 0; index < data -> size; ++index) {
         printf("{ %d, %lld }\n", *(int *) data -> arr[index].ptr_val1, *(long long *) data -> arr[index].ptr_val2);
