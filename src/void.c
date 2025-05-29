@@ -2,12 +2,25 @@
 #include <stdlib.h>
 #include <string.h>
 
+// prevent UAF vulnerability.
 #define FREE(ptr) (free(ptr), ptr = NULL)
+// prevent two pointers pointing to the same memory.
+#define SHIFT(TYPE, old_ptr, new_ptr) (old_ptr = (TYPE *) new_ptr, new_ptr = NULL)
 
 typedef struct {
     void* data;
     char* error;
 } Result;
+
+void Result_free(Result* ptr) {
+    if (ptr == NULL) {
+        return ;
+    }
+
+    FREE(ptr -> data);
+    FREE(ptr -> error);
+    FREE(ptr);
+}
 
 #define Result_error(error) Result_new(NULL, error)
 #define Result_data(data) Result_new(data, NULL)
@@ -19,10 +32,15 @@ typedef struct {
     void* ptr_val1;
     void* ptr_val2;
 } ZipElem;
+const size_t ZipElemSize = sizeof(ZipElem);
+
 typedef struct {
     ZipElem* arr;
+    // TODO: using `index` we must create an iterator for zip structure and zip_next() that can allow for movement of that iterator to reduce the syntax for accessing zip elements.
+    size_t index;
     size_t size;
 } ZipArray;
+const size_t ZipArraySize = sizeof(ZipArray);
 
 void ZipArray_free(ZipArray* ptr) {
     if (ptr == NULL) {
@@ -42,6 +60,22 @@ void ZipArray_free(ZipArray* ptr) {
     if_arr_null:
     FREE(ptr);
 }
+Result ZipArray_new(const size_t size) {
+    ZipArray* data = malloc(ZipArraySize);
+
+    if (data == NULL) {
+        return Result_error("Couldn't allocate memory for data for ZipArray.");
+    }
+    if ((data -> arr = malloc(size * ZipElemSize)) == NULL) {
+        ZipArray_free(data);
+        return Result_error("Couldn't allocate memory for data -> arr for ZipArray.");
+    }
+
+    data -> index = 0;
+    data -> size = size;
+
+    return Result_data(data);
+}
 
 #define zip(arr1, size1, arr2, size2) _zip(arr1, size1, sizeof(arr1[0]), arr2, size2, sizeof(arr2[0]))
 Result _zip(
@@ -57,18 +91,15 @@ Result _zip(
     }
     
     const size_t min_size = arr1_size < arr2_size? arr1_size : arr2_size;
-    ZipArray* data = malloc(sizeof(ZipArray));
-    
-    if (data == NULL) {
-        return Result_error("Could not allocate ZipArray.");
-    }
-    
-    data -> arr = malloc(min_size * sizeof(ZipElem));
-    data -> size = min_size;
+    Result result = ZipArray_new(min_size);
 
-    if (data -> arr == NULL) {
-        return Result_error("Could not allocate ZipElem array");
+    if (result.error != NULL) {
+        return result;
     }
+
+    FREE(result.error);
+    ZipArray* data;
+    SHIFT(ZipArray, data, result.data);
 
     for (size_t index = 0; index < min_size; ++index) {
         if ((data -> arr[index].ptr_val1 = malloc(arr1_element_size)) == NULL) {
@@ -99,10 +130,17 @@ int main() {
     }
     
     Result result = zip(arr1, size1, arr2, size2);
-    ZipArray* data = (ZipArray *) result.data;
+    
+    if (result.error) {
+        perror("Couldn't get zippped array.");
+        Result_free(&result);
+        return 1;
+    }
+
+    ZipArray* data;
     // never should two pointers point to the same memory.
     // hence we remove the access from result.data to prevent future issues if we free one pointer and then try to free the other one.
-    result.data = NULL;
+    SHIFT(ZipArray, data, result.data);
 
     FREE(arr1);
     FREE(arr2);
@@ -112,6 +150,8 @@ int main() {
     }
 
     ZipArray_free(data);
+    // we still need to free the memory inside reuslt.
+    Result_free(&result);
 
     printf("All memory freed.");
     
